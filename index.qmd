@@ -5,7 +5,9 @@ author:
     orcid: 0000-0001-7513-7376
   - name: Rodrigo Dalmolin
     orcid: 0000-0002-1688-6155
-format: html
+format:
+  html:
+    embed-resources: true
 ---
 
 ```{r setup, include=FALSE}
