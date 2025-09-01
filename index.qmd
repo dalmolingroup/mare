@@ -8,6 +8,7 @@ author:
 format:
   html:
     embed-resources: true
+    toc: true
 bibliography: references.bib
 lang: pt
 ---
