@@ -8,6 +8,8 @@ author:
 format:
   html:
     embed-resources: true
+bibliography: references.bib
+lang: pt
 ---
 
 ```{r setup, include=FALSE}
@@ -37,6 +39,9 @@ reactable(
 )
 ```
 
+# Metodologia
+
+A análise foi realizada com o pipeline nf-core/mag v4.0.0 [@nf-core-mag], orquestrado pelo gerenciador de fluxos de trabalho Nextflow e utilizando o perfil Singularity. O script utilizado para a análise pode ser encontrado [aqui](https://github.com/dalmolingroup/mare/blob/main/scripts/run_mag.sh).
 
 # Controle de Qualidade
 
@@ -44,19 +49,21 @@ reactable(
 
 Cada amostra possui por volta de 60M a 100M de *reads* não-duplicadas. **Excetuando-se a amostra PB12, cujo *lane* 1 estava corrompido**, portanto seu número de *reads* iguala por volta da metade do restante.
 
+Abaixo, valores obtidos com o software FastQC [@FastQC].
+
 ![Contagens do número absoluto de *reads* duplicadas e não duplicadas em cada amostra](./results/figures/fastqc_sequence_counts_plot.png)
 
 ![Porcentagem de *reads* duplicadas e não duplicadas em cada amostra](./results/figures/fastqc_sequence_counts_plot_percentage.png)
 
 ## Filtragem de *reads*
 
-Por volta de 99% das *reads* foram mantidas em todas as amostras - uma retenção alta e adequada pra fazer uma caracterização profunda do microbioma.
+Utilizando fastp [@Chen2018], por volta de 99% das *reads* foram mantidas em todas as amostras - uma retenção alta e adequada pra fazer uma caracterização profunda do microbioma.
 
 ![Porcetagem de *reads* retidas em cada amostra](./results/figures/fastp_filtered_reads_plot.png)
 
 ## Classificação taxonômica exploratória
 
-Utilizando um banco de dados reduzido do Kraken2 para observar a taxa de classificação, observamos que por volta de 70-80% das *reads* resultaram em nenhuma classificação, o que é esperado dado a profundidade do sequenciamento.
+Utilizando um banco de dados reduzido do Kraken2 [@Wood2019] para observar a taxa de classificação, observamos que por volta de 70-80% das *reads* resultaram em nenhuma classificação, o que é esperado dado a profundidade do sequenciamento.
 
 ::: {.callout-warning}
 # Aviso
@@ -68,7 +75,7 @@ Apesar de mostrar uma aparente predominância do filo *Pseudomonadota*, recomend
 
 # Montagem
 
-Após montagem com o MEGAHIT, observamos que a maioria dos *contigs* possuem um comprimento de até 1000 pares de base.
+Após montagem com o MEGAHIT [@Li2015], observamos que a maioria dos *contigs* possuem um comprimento de até 1000 pares de base.
 
 ![Porcentagem de *contigs* de cada comprimento nas montagens de cada amostra](results/figures/quast_num_contigs.png)
 
@@ -78,13 +85,13 @@ Valores de N50 e N75 mostram resultados bons.
 
 # Binning
 
-Após uma abordagem híbrida de binning utilizando os softwares MaxBin, CONCOCT e MetaBAT2, seguida de refinamento com o DASTool, pudemos obter inicialmente **1355 *bins*, que foram refinados para 112 *metagenome-assembled genomes* (MAGs)**.
+Após uma abordagem híbrida de binning utilizando os softwares MaxBin [@Wu2016], CONCOCT [@Alneberg2014] e MetaBAT2 [@Kang2019], seguida de refinamento com o DASTool [@Sieber2018], pudemos obter inicialmente **1355 *bins*, que foram refinados para 112 *metagenome-assembled genomes* (MAGs)**.
 
 Após o refinamento, notamos melhorias quanto ao comprimento dos *contigs* quando comparados às montagens brutas.
 
 ![Porcentagem de *contigs* de cada comprimento nas MAGs obtidas](results/figures/quast_num_contigs-1.png)
 
-Apesar de ainda não termos realizado a classificação taxonômica propriamente dita dessas bins, realizamos um passo de predição de sequências eucarióticas, procarióticas e de archaea com o software Tiara, mostrando que quase todas as MAGs obtidas são procarióticas.
+Apesar de ainda não termos realizado a classificação taxonômica propriamente dita dessas bins, realizamos um passo de predição de sequências eucarióticas, procarióticas e de archaea com o software Tiara [@Karlicki2022], mostrando que quase todas as MAGs obtidas são procarióticas.
 
 ```{r}
 tiara_res <- read_table("results/nfcore_mag_results/GenomeBinning/Tiara/tiara_summary.tsv") |> 
@@ -155,3 +162,11 @@ ggplot(count_df,
   )
 ```
 
+
+# Passos futuros
+
+- Classificação taxonômica das MAGs
+- Anotação funcional das montagens
+  - Busca de clusters gênicos biosintéticos
+  - Identificação de genes de resistência a antibióticos
+  - Identificação de peptídeos antimicrobianos
