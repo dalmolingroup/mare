@@ -1,0 +1,8 @@
+sample,group,short_reads_1,short_reads_2,long_reads
+PB1,RestingaBarradeMamanguapeAçude,merged_fastqs/PB1_merged_R1.fastq.gz,merged_fastqs/PB1_merged_R2.fastq.gz,
+PB11,EstuárioCabedelo,merged_fastqs/PB11_merged_R1.fastq.gz,merged_fastqs/PB11_merged_R2.fastq.gz,
+PB12,RestingaCabedeloRio,merged_fastqs/PB12_merged_R1.fastq.gz,merged_fastqs/PB12_merged_R2.fastq.gz,
+PB3,RestingaBarradeMamanguape,merged_fastqs/PB3_merged_R1.fastq.gz,merged_fastqs/PB3_merged_R2.fastq.gz,
+PB4,EstuárioBarradeMamanguape,merged_fastqs/PB4_merged_R1.fastq.gz,merged_fastqs/PB4_merged_R2.fastq.gz,
+PB7,EstuárioBarradeMamanguape,merged_fastqs/PB7_merged_R1.fastq.gz,merged_fastqs/PB7_merged_R2.fastq.gz,
+PB9,EstuárioCabedelo,merged_fastqs/PB9_merged_R1.fastq.gz,merged_fastqs/PB9_merged_R2.fastq.gz,
