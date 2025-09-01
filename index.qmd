@@ -1,0 +1,155 @@
+---
+title: "MaRe - Resultados preliminares"
+author:
+  - name: João V. F. Cavalcante
+    orcid: 0000-0001-7513-7376
+  - name: Rodrigo Dalmolin
+    orcid: 0000-0002-1688-6155
+format: html
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  results = TRUE
+)
+
+library(tidyverse)
+library(reactable)
+```
+
+# Descrição das amostras
+
+
+```{r}
+metadata <- read.csv("data/metadata.csv")
+
+reactable(
+  metadata |> distinct() |> arrange(location) |> setNames(c("Amostra", "Local")),
+  bordered = TRUE,
+  highlight = TRUE,
+  striped = TRUE,
+  compact = TRUE
+)
+```
+
+
+# Controle de Qualidade
+
+## Contagens de reads
+
+Cada amostra possui por volta de 60M a 100M de *reads* não-duplicadas. **Excetuando-se a amostra PB12, cujo *lane* 1 estava corrompido**, portanto seu número de *reads* iguala por volta da metade do restante.
+
+![Contagens do número absoluto de *reads* duplicadas e não duplicadas em cada amostra](./results/figures/fastqc_sequence_counts_plot.png)
+
+![Porcentagem de *reads* duplicadas e não duplicadas em cada amostra](./results/figures/fastqc_sequence_counts_plot_percentage.png)
+
+## Filtragem de *reads*
+
+Por volta de 99% das *reads* foram mantidas em todas as amostras - uma retenção alta e adequada pra fazer uma caracterização profunda do microbioma.
+
+![Porcetagem de *reads* retidas em cada amostra](./results/figures/fastp_filtered_reads_plot.png)
+
+## Classificação taxonômica exploratória
+
+Utilizando um banco de dados reduzido do Kraken2 para observar a taxa de classificação, observamos que por volta de 70-80% das *reads* resultaram em nenhuma classificação, o que é esperado dado a profundidade do sequenciamento.
+
+::: {.callout-warning}
+# Aviso
+
+Apesar de mostrar uma aparente predominância do filo *Pseudomonadota*, recomendamos se atentarem ao fato de que a classificação foi feita com um banco de dados reduzido (Kraken2-16GB) e o banco de dados completo seria mais adequado para geração de hipóteses - passo já realizado pela Esther.
+:::
+
+![Resultado da classificação taxonômica com Kraken2, a nível de filo](./results/figures/Kraken2-top-n-plot.png)
+
+# Montagem
+
+Após montagem com o MEGAHIT, observamos que a maioria dos *contigs* possuem um comprimento de até 1000 pares de base.
+
+![Porcentagem de *contigs* de cada comprimento nas montagens de cada amostra](results/figures/quast_num_contigs.png)
+
+Valores de N50 e N75 mostram resultados bons.
+
+![Distribuições de estatísticas relativas às montagens de cada amostra.](results/figures/quast_table.png)
+
+# Binning
+
+Após uma abordagem híbrida de binning utilizando os softwares MaxBin, CONCOCT e MetaBAT2, seguida de refinamento com o DASTool, pudemos obter inicialmente **1355 *bins*, que foram refinados para 112 *metagenome-assembled genomes* (MAGs)**.
+
+Após o refinamento, notamos melhorias quanto ao comprimento dos *contigs* quando comparados às montagens brutas.
+
+![Porcentagem de *contigs* de cada comprimento nas MAGs obtidas](results/figures/quast_num_contigs-1.png)
+
+Apesar de ainda não termos realizado a classificação taxonômica propriamente dita dessas bins, realizamos um passo de predição de sequências eucarióticas, procarióticas e de archaea com o software Tiara, mostrando que quase todas as MAGs obtidas são procarióticas.
+
+```{r}
+tiara_res <- read_table("results/nfcore_mag_results/GenomeBinning/Tiara/tiara_summary.tsv") |> 
+  select(BinID, classification)
+tiara_res$BinID <- gsub("_", ".", tiara_res$BinID)
+bin_summary <- read_tsv("results/nfcore_mag_results/GenomeBinning/bin_summary.tsv") |> 
+  select(bin, Name)
+bin_summary$unrefined_name <- gsub("Refined|\\.fa|_sub", "", bin_summary$bin)
+
+count_df <- tiara_res %>%
+  count(classification, name = "number_of_bins")
+
+ggplot(count_df,
+       aes(
+         x = reorder(classification, -number_of_bins),
+         y = number_of_bins,
+         fill = classification
+       )) +
+  geom_col(show.legend = FALSE, width = 0.6) +
+  geom_text(
+    aes(label = number_of_bins),
+    vjust = -0.5,
+    size = 4,
+    color = "black"
+  ) + # Adds count labels on top of bars
+  scale_fill_brewer(palette = "Set2") + # A nice color palette
+  labs(title = "Número de Bins não-refinados por reino (predito)", x = "Classificação", y = "# bins") +
+  theme_minimal(base_size = 14) + # A clean theme for the plot
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5),
+    panel.grid.major.x = element_blank(),
+    # Removes vertical grid lines
+    panel.grid.minor.y = element_blank()
+  )
+```
+
+Considerando apenas bins pós-refinamento, a predominância de *prokarya* permanece.
+
+```{r}
+classifs <- inner_join(tiara_res, bin_summary, by = c("BinID" = "unrefined_name"))
+
+count_df <- classifs %>%
+  count(classification, name = "number_of_bins")
+
+ggplot(count_df,
+       aes(
+         x = reorder(classification, -number_of_bins),
+         y = number_of_bins,
+         fill = classification
+       )) +
+  geom_col(show.legend = FALSE, width = 0.6) +
+  geom_text(
+    aes(label = number_of_bins),
+    vjust = -0.5,
+    size = 4,
+    color = "black"
+  ) +
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "Número de Bins refinados por reino (predito)", x = "Classificação", y = "# bins") +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5),
+    panel.grid.major.x = element_blank(),
+    # Removes vertical grid lines
+    panel.grid.minor.y = element_blank()
+  )
+```
+
