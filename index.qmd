@@ -165,7 +165,7 @@ ggplot(count_df,
 
 ## Classificação taxonômica dos bins
 
-Realizamos a classificação taxonômica dos bins para **táxons de Bacteria e Archaea** de acordo com a referência GTDB-Tk [@Chaumeil2022], que compreende Bactérias e Archaea.
+Realizamos a classificação taxonômica dos bins para **táxons de Bacteria e Archaea** de acordo com a referência GTDB-Tk [@Chaumeil2022].
 
 ```{r}
 gtdb_summary <- read_tsv("results/nfcore_mag_results/Taxonomy/GTDB-Tk/gtdbtk_summary.tsv")
