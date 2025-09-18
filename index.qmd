@@ -48,7 +48,7 @@ A análise foi realizada com o pipeline nf-core/mag v4.0.0 [@nf-core-mag], orque
 
 ## Contagens de reads
 
-Cada amostra possui por volta de 60M a 100M de *reads* não-duplicadas. **Excetuando-se a amostra PB12, cujo *lane* 1 estava corrompido**, portanto seu número de *reads* iguala por volta da metade do restante.
+Cada amostra possui por volta de 60M a 100M de *reads* não-duplicadas.
 
 Abaixo, valores obtidos com o software FastQC [@FastQC].
 
@@ -62,17 +62,15 @@ Utilizando fastp [@Chen2018], por volta de 99% das *reads* foram mantidas em tod
 
 ![Porcetagem de *reads* retidas em cada amostra](./results/figures/fastp_filtered_reads_plot.png)
 
-## Classificação taxonômica exploratória
+## Classificação taxonômica
 
-Utilizando um banco de dados reduzido do Kraken2 [@Wood2019] para observar a taxa de classificação, observamos que por volta de 70-80% das *reads* resultaram em nenhuma classificação, o que é esperado dado a profundidade do sequenciamento.
+Utilizando o banco de dados *standardpluspf* (Bacteria, Archaea, Protozoa e Fungi) do Kraken2 [@Wood2019] para observar a classificação taxonômica das leituras, observamos que por volta de 50-60% das *reads* resultaram em nenhuma classificação, o que é esperado dado a profundidade do sequenciamento.
 
-::: {.callout-warning}
-# Aviso
-
-Apesar de mostrar uma aparente predominância do filo *Pseudomonadota*, recomendamos se atentarem ao fato de que a classificação foi feita com um banco de dados reduzido (Kraken2-16GB) e o banco de dados completo seria mais adequado para geração de hipóteses - passo já realizado pela Esther.
-:::
+![Resultado da classificação taxonômica com Kraken2, a nível de reino](./results/figures/Kraken2-top-n-plot_kingdom.png)
 
 ![Resultado da classificação taxonômica com Kraken2, a nível de filo](./results/figures/Kraken2-top-n-plot.png)
+
+![Resultado da classificação taxonômica com Kraken2, a nível de família](./results/figures/Kraken2-top-n-plot_familia.png)
 
 # Montagem
 
@@ -86,13 +84,15 @@ Valores de N50 e N75 mostram resultados bons.
 
 # Binning
 
-Após uma abordagem híbrida de binning utilizando os softwares MaxBin [@Wu2016], CONCOCT [@Alneberg2014] e MetaBAT2 [@Kang2019], seguida de refinamento com o DASTool [@Sieber2018], pudemos obter inicialmente **1355 *bins*, que foram refinados para 112 *metagenome-assembled genomes* (MAGs)**.
+Após uma abordagem híbrida de binning utilizando os softwares MaxBin [@Wu2016], CONCOCT [@Alneberg2014] e MetaBAT2 [@Kang2019], seguida de refinamento com o DASTool [@Sieber2018], pudemos obter inicialmente **1,549 *bins*, que foram refinados para 137 *metagenome-assembled genomes* (MAGs)**.
 
 Após o refinamento, notamos melhorias quanto ao comprimento dos *contigs* quando comparados às montagens brutas.
 
 ![Porcentagem de *contigs* de cada comprimento nas MAGs obtidas](results/figures/quast_num_contigs-1.png)
 
-Apesar de ainda não termos realizado a classificação taxonômica propriamente dita dessas bins, realizamos um passo de predição de sequências eucarióticas, procarióticas e de archaea com o software Tiara [@Karlicki2022], mostrando que quase todas as MAGs obtidas são procarióticas.
+## Predição de domínio
+
+Realizamos um passo de predição de sequências eucarióticas, procarióticas e de archaea com o software Tiara [@Karlicki2022], mostrando que quase todas as MAGs obtidas são procarióticas.
 
 ```{r}
 tiara_res <- read_table("results/nfcore_mag_results/GenomeBinning/Tiara/tiara_summary.tsv") |> 
@@ -163,10 +163,44 @@ ggplot(count_df,
   )
 ```
 
+## Classificação taxonômica dos bins
+
+Realizamos a classificação taxonômica dos bins para **táxons de Bacteria e Archaea** de acordo com a referência GTDB-Tk [@Chaumeil2022], que compreende Bactérias e Archaea.
+
+```{r}
+gtdb_summary <- read_tsv("results/nfcore_mag_results/Taxonomy/GTDB-Tk/gtdbtk_summary.tsv")
+```
+
+```{r}
+#| fig-cap: "Distribuição dos principais filos identificados a partir de genomas montados de metagenomas (MAGs). O gráfico de barras exibe o número total de MAGs classificados em diferentes filos com base no Genome Taxonomy Database (GTDB). A análise revela que *Pseudomonadota* e *Bacteroidota* são os filos mais representados no conjunto de dados. Mais de 40 MAGs não puderam ser classificadas, 8 pertencendo a Eukarya de acordo com o Tiara."
+
+phylum_counts <- gtdb_summary %>%
+  # Split the classification string by ';' and get the second element (phylum)
+  separate(classification, into = c("domain", "phylum"), sep = ";", extra = "drop") %>%
+  # Clean up the phylum name by removing the 'p__' prefix
+  mutate(phylum = str_replace(phylum, "p__", "")) %>%
+  # Count the occurrences of each phylum
+  count(phylum, sort = TRUE)
+
+# Create the plot
+ggplot(phylum_counts, aes(x = n, y = reorder(phylum, n))) +
+  geom_bar(stat = "identity", fill = "#2c7fb8") +
+  labs(
+    title = "Distribuição taxonômica das MAGs",
+    subtitle = "Contagens a nível de filo",
+    x = "Número de MAGs",
+    y = NULL
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    axis.text.y = element_text(face = "italic")
+  )
+```
 
 # Passos futuros
 
-- Classificação taxonômica das MAGs
+- Classificação das MAGs eucarióticas.
 - Anotação funcional das montagens
   - Busca de clusters gênicos biosintéticos
   - Identificação de genes de resistência a antibióticos
