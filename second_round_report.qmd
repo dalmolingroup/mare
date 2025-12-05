@@ -1,0 +1,300 @@
+---
+title: "MaRe - Resultados da segunda rodada"
+author:
+  - name: João V. F. Cavalcante
+    orcid: 0000-0001-7513-7376
+  - name: Rodrigo Dalmolin
+    orcid: 0000-0002-1688-6155
+format:
+  html:
+    embed-resources: true
+    toc: true
+bibliography: references.bib
+lang: pt
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  results = TRUE
+)
+
+library(tidyverse)
+library(reactable)
+```
+
+# Descrição das amostras
+
+
+```{r}
+metadata <- read.csv("data/second_round_samples.csv")
+
+reactable(
+  metadata |> select(sample, group) |> setNames(c("Amostra", "Local")),
+  bordered = TRUE,
+  highlight = TRUE,
+  striped = TRUE,
+  compact = TRUE
+)
+```
+
+# Metodologia
+
+A análise foi realizada com o pipeline nf-core/mag v4.0.0 [@nf-core-mag], orquestrado pelo gerenciador de fluxos de trabalho Nextflow e utilizando o perfil Singularity. O script utilizado para a análise pode ser encontrado [aqui](https://github.com/dalmolingroup/mare/blob/main/scripts/run_mag.sh).
+
+# Controle de Qualidade
+
+## Filtragem de *reads*
+
+Utilizando fastp [@Chen2018], por volta de 99% das *reads* foram mantidas em todas as amostras - uma retenção alta e adequada pra fazer uma caracterização profunda do microbioma.
+
+![Porcetagem de *reads* retidas em cada amostra](./results/figures/fastp_filtered_reads_plot_second_round.png){fig-align="center"}
+
+# Montagem
+
+Após montagem com o MEGAHIT [@Li2015], observamos que a maioria dos *contigs* possuem um comprimento de até 1000 pares de base.
+
+![Porcentagem de *contigs* de cada comprimento nas montagens de cada amostra](results/figures/quast_num_contigs_second_round.png){fig-align="center"}
+
+# Predição de domínio
+
+Realizamos um passo de predição de sequências eucarióticas, procarióticas e de archaea com o software Tiara [@Karlicki2022], mostrando que quase todas as MAGs obtidas são procarióticas. Nesse momento estamos considerando todos os bins, antes do refinamento.
+
+```{r}
+tiara_res <- read_table("results/secondround/Tiara/tiara_summary.tsv") |>
+  select(BinID, classification)
+
+count_df <- tiara_res %>%
+  count(classification, name = "number_of_bins")
+
+ggplot(count_df,
+       aes(
+         x = reorder(classification, -number_of_bins),
+         y = number_of_bins,
+         fill = classification
+       )) +
+  geom_col(show.legend = FALSE, width = 0.6) +
+  geom_text(
+    aes(label = number_of_bins),
+    vjust = -0.5,
+    size = 4,
+    color = "black"
+  ) + # Adds count labels on top of bars
+  scale_fill_brewer(palette = "Set2") + # A nice color palette
+  labs(title = "Número de Bins por reino (predito)", x = "Classificação", y = "# bins") +
+  theme_minimal(base_size = 14) + # A clean theme for the plot
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5),
+    panel.grid.major.x = element_blank(),
+    # Removes vertical grid lines
+    panel.grid.minor.y = element_blank()
+  )
+```
+
+# Classificação taxonômica das reads
+
+Utilizando o banco de dados *standardpluspf* (Bacteria, Archaea, Protozoa e Fungi) do Kraken2 [@Wood2019] para observar a classificação taxonômica das leituras.
+
+```{r}
+library(tidyverse)
+library(scales)
+
+read_kraken <- function(filepath) {
+  # Extract sample name from filename
+  sample_name <- basename(filepath) %>% str_remove(".kraken2_report.txt")
+  
+  # Read the file with EXPLICIT types to prevent type mismatch errors
+  # Kraken2 columns: % (d), covered (d), assigned (d), rank (c), taxid (d), name (c)
+  data <- read_tsv(filepath, 
+                   col_names = FALSE, 
+                   trim_ws = TRUE,
+                   show_col_types = FALSE,
+                   col_types = cols(
+                     X1 = col_double(),
+                     X2 = col_double(),
+                     X3 = col_double(),
+                     X4 = col_character(), # Rank must be character
+                     X5 = col_double(),
+                     X6 = col_character()
+                   ))
+  
+  # Rename columns
+  colnames(data) <- c("percent", "clade_reads", "taxon_reads", "rank", "taxid", "name")
+  
+  # Add sample column
+  data <- data %>%
+    mutate(name = str_trim(name),
+           sample = sample_name)
+  
+  return(data)
+}
+
+report_dir <- "results/secondround/kraken2" 
+file_list <- list.files(path = report_dir, recursive = T, pattern = "*.kraken2_report.txt", full.names = TRUE)
+
+if(length(file_list) == 0) stop("No files found! Check your directory path.")
+
+df_all <- file_list %>%
+  map_dfr(read_kraken)
+
+totals <- df_all %>%
+  filter(rank %in% c("U", "R")) %>%
+  group_by(sample) %>%
+  summarise(total_reads = sum(clade_reads), .groups = "drop")
+
+df_filtered <- df_all %>%
+  filter(rank == "F" | rank == "U") %>%
+  select(sample, name, clade_reads, rank)
+
+df_plot_prep <- df_filtered %>%
+  left_join(totals, by = "sample") %>%
+  group_by(sample) %>%
+  mutate(
+    current_sum = sum(clade_reads),
+    unknown_other = total_reads - current_sum 
+  ) %>%
+  ungroup()
+
+top_n_count <- 5 
+
+# Identify top families
+top_taxa <- df_filtered %>%
+  filter(rank == "F") %>% 
+  group_by(name) %>%
+  summarise(total_abundance = sum(clade_reads), .groups = "drop") %>%
+  top_n(top_n_count, total_abundance) %>%
+  pull(name)
+
+# Categorize
+df_final <- df_filtered %>%
+  mutate(category = case_when(
+    rank == "U" ~ "Unclassified",
+    name %in% top_taxa ~ name,
+    TRUE ~ "Other"
+  )) %>%
+  # Add the 'unknown' reads to "Other"
+  bind_rows(
+    df_plot_prep %>% 
+      select(sample, unknown_other) %>% 
+      distinct() %>% 
+      mutate(category = "Other", clade_reads = unknown_other) %>%
+      select(sample, category, clade_reads)
+  ) %>%
+  group_by(sample, category) %>%
+  summarise(count = sum(clade_reads), .groups = "drop")
+
+# Order the factors for the plot
+taxa_order <- c(top_taxa, "Other", "Unclassified")
+df_final$category <- factor(df_final$category, levels = taxa_order)
+
+ggplot(df_final, aes(x = count, y = sample, fill = category)) +
+  geom_col(position = "fill", width = 0.8) + 
+  scale_x_continuous(labels = scales::percent) +
+  # Using default discrete palette (no custom colors)
+  labs(
+    title = "Kraken2: Top taxa",
+    subtitle = "Family level",
+    x = "Relative Abundance",
+    y = NULL,
+    fill = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    panel.grid.major.y = element_blank()
+  )
+```
+
+```{r}
+df_p <- df_all %>%
+  filter(rank == "P" | rank == "U")
+
+df_plot_p <- df_p %>%
+  left_join(totals, by = "sample") %>%
+  group_by(sample) %>%
+  mutate(
+    current_sum = sum(clade_reads),
+    unknown_other = total_reads - current_sum 
+  ) %>%
+  ungroup()
+
+top_p <- df_p %>%
+  filter(rank == "P") %>%
+  group_by(name) %>%
+  summarise(total_abundance = sum(clade_reads), .groups = "drop") %>%
+  top_n(5, total_abundance) %>% 
+  pull(name)
+
+df_final_p <- df_p %>%
+  mutate(category = case_when(
+    rank == "U" ~ "Unclassified",
+    name %in% top_p ~ name,
+    TRUE ~ "Other"
+  )) %>%
+  bind_rows(
+    df_plot_p %>% 
+      select(sample, unknown_other) %>% 
+      distinct() %>% 
+      mutate(category = "Other", clade_reads = unknown_other)
+  ) %>%
+  group_by(sample, category) %>%
+  summarise(count = sum(clade_reads), .groups = "drop")
+
+df_final_p$category <- factor(df_final_p$category, levels = c(top_p, "Other", "Unclassified"))
+
+ggplot(df_final_p, aes(x = count, y = sample, fill = category)) +
+  geom_col(position = "fill", width = 0.8) +
+  scale_x_continuous(labels = scales::percent) +
+  labs(title = "Kraken2: Top Taxa", subtitle = "Phylum Level", x = "Relative Abundance", y = NULL, fill = NULL) +
+  theme_minimal() +
+  theme(legend.position = "right", panel.grid.major.y = element_blank())
+```
+
+```{r}
+df_k <- df_all %>%
+  filter(rank == "K" | rank == "U")
+
+df_plot_k <- df_k %>%
+  left_join(totals, by = "sample") %>%
+  group_by(sample) %>%
+  mutate(
+    current_sum = sum(clade_reads),
+    unknown_other = total_reads - current_sum 
+  ) %>%
+  ungroup()
+
+top_k <- df_k %>%
+  filter(rank == "K") %>%
+  group_by(name) %>%
+  summarise(total_abundance = sum(clade_reads), .groups = "drop") %>%
+  top_n(5, total_abundance) %>% # Adjust number of top kingdoms if needed
+  pull(name)
+
+df_final_k <- df_k %>%
+  mutate(category = case_when(
+    rank == "U" ~ "Unclassified",
+    name %in% top_k ~ name,
+    TRUE ~ "Other"
+  )) %>%
+  bind_rows(
+    df_plot_k %>% 
+      select(sample, unknown_other) %>% 
+      distinct() %>% 
+      mutate(category = "Other", clade_reads = unknown_other)
+  ) %>%
+  group_by(sample, category) %>%
+  summarise(count = sum(clade_reads), .groups = "drop")
+
+df_final_k$category <- factor(df_final_k$category, levels = c(top_k, "Other", "Unclassified"))
+
+ggplot(df_final_k, aes(x = count, y = sample, fill = category)) +
+  geom_col(position = "fill", width = 0.8) +
+  scale_x_continuous(labels = scales::percent) +
+  labs(title = "Kraken2: Top Taxa", subtitle = "Kingdom Level", x = "Relative Abundance", y = NULL, fill = NULL) +
+  theme_minimal() +
+  theme(legend.position = "right", panel.grid.major.y = element_blank())
+```
+

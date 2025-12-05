@@ -52,35 +52,35 @@ Cada amostra possui por volta de 60M a 100M de *reads* não-duplicadas.
 
 Abaixo, valores obtidos com o software FastQC [@FastQC].
 
-![Contagens do número absoluto de *reads* duplicadas e não duplicadas em cada amostra](./results/figures/fastqc_sequence_counts_plot.png)
+![Contagens do número absoluto de *reads* duplicadas e não duplicadas em cada amostra](./results/figures/fastqc_sequence_counts_plot.png){fig-align="center"}
 
-![Porcentagem de *reads* duplicadas e não duplicadas em cada amostra](./results/figures/fastqc_sequence_counts_plot_percentage.png)
+![Porcentagem de *reads* duplicadas e não duplicadas em cada amostra](./results/figures/fastqc_sequence_counts_plot_percentage.png){fig-align="center"}
 
 ## Filtragem de *reads*
 
 Utilizando fastp [@Chen2018], por volta de 99% das *reads* foram mantidas em todas as amostras - uma retenção alta e adequada pra fazer uma caracterização profunda do microbioma.
 
-![Porcetagem de *reads* retidas em cada amostra](./results/figures/fastp_filtered_reads_plot.png)
+![Porcetagem de *reads* retidas em cada amostra](./results/figures/fastp_filtered_reads_plot.png){fig-align="center"}
 
 ## Classificação taxonômica
 
 Utilizando o banco de dados *standardpluspf* (Bacteria, Archaea, Protozoa e Fungi) do Kraken2 [@Wood2019] para observar a classificação taxonômica das leituras, observamos que por volta de 50-60% das *reads* resultaram em nenhuma classificação, o que é esperado dado a profundidade do sequenciamento.
 
-![Resultado da classificação taxonômica com Kraken2, a nível de reino](./results/figures/Kraken2-top-n-plot_kingdom.png)
+![Resultado da classificação taxonômica com Kraken2, a nível de reino](./results/figures/Kraken2-top-n-plot_kingdom.png){fig-align="center"}
 
-![Resultado da classificação taxonômica com Kraken2, a nível de filo](./results/figures/Kraken2-top-n-plot.png)
+![Resultado da classificação taxonômica com Kraken2, a nível de filo](./results/figures/Kraken2-top-n-plot.png){fig-align="center"}
 
-![Resultado da classificação taxonômica com Kraken2, a nível de família](./results/figures/Kraken2-top-n-plot_familia.png)
+![Resultado da classificação taxonômica com Kraken2, a nível de família](./results/figures/Kraken2-top-n-plot_familia.png){fig-align="center"}
 
 # Montagem
 
 Após montagem com o MEGAHIT [@Li2015], observamos que a maioria dos *contigs* possuem um comprimento de até 1000 pares de base.
 
-![Porcentagem de *contigs* de cada comprimento nas montagens de cada amostra](results/figures/quast_num_contigs.png)
+![Porcentagem de *contigs* de cada comprimento nas montagens de cada amostra](results/figures/quast_num_contigs.png){fig-align="center"}
 
 Valores de N50 e N75 mostram resultados bons.
 
-![Distribuições de estatísticas relativas às montagens de cada amostra.](results/figures/quast_table.png)
+![Distribuições de estatísticas relativas às montagens de cada amostra.](results/figures/quast_table.png){fig-align="center"}
 
 # Binning
 
@@ -88,7 +88,7 @@ Após uma abordagem híbrida de binning utilizando os softwares MaxBin [@Wu2016]
 
 Após o refinamento, notamos melhorias quanto ao comprimento dos *contigs* quando comparados às montagens brutas.
 
-![Porcentagem de *contigs* de cada comprimento nas MAGs obtidas](results/figures/quast_num_contigs-1.png)
+![Porcentagem de *contigs* de cada comprimento nas MAGs obtidas](results/figures/quast_num_contigs-1.png){fig-align="center"}
 
 ## Predição de domínio
 
